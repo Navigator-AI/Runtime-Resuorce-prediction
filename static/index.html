@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Runtime & Resource Prediction</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f6f7f9; margin: 0; }
+    .wrap { max-width: 1100px; margin: 28px auto; padding: 0 12px; }
+    h2 { margin: 0 0 14px; }
+    .msg-user {
+      background: #cfe3ff;
+      padding: 10px 12px;
+      border-radius: 10px;
+      display: inline-block;
+      margin: 12px 0;
+      max-width: 70%;
+      align-self: flex-end;
+    }
+    .card {
+      background: #e6f4ea;
+      border: 1px solid #cfe9d4;
+      border-radius: 10px;
+      padding: 14px;
+      margin: 12px 0;
+      max-width: 90%;
+      align-self: flex-start;
+    }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { border:1px solid #cfe9d4; padding:10px; text-align:center; }
+    th { background:#2f2f2f; color:#fff; position: sticky; top:0; }
+    .scroll { max-height: 420px; overflow:auto; margin-top:10px; }
+    .controls { display:flex; gap:8px; margin-top:12px; }
+    input { flex:1; padding:10px; border:1px solid #ddd; border-radius:6px; }
+    button { padding:10px 14px; border:0; border-radius:6px; background:#28a745; color:#fff; cursor:pointer; }
+    button:hover { background:#218838; }
+    .btn-blue { background:#007bff; } .btn-blue:hover{ background:#0069d9; }
+    .hint { color:#666; font-size: 12px; margin-top:6px; }
+    #chat { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Runtime & Resource Prediction</h2>
+
+  <div id="chat"></div>
+
+  <div class="controls">
+    <input id="cmd" placeholder="Type: train dataset_csv  or  predict dataset_csv" />
+    <button onclick="send()">Send</button>
+  </div>
+  <div class="hint">Commands: <code>train &lt;table&gt;</code> or <code>predict &lt;table&gt;</code></div>
+</div>
+
+<script>
+const API = "http://127.0.0.1:9321";
+
+function addUser(msg){
+  const d = document.createElement('div');
+  d.className = 'msg-user';
+  d.textContent = msg;
+  document.getElementById('chat').appendChild(d);
+  scrollToBottom();
+}
+
+function addCard(html){
+  const d = document.createElement('div');
+  d.className = 'card';
+  d.innerHTML = html;
+  document.getElementById('chat').appendChild(d);
+  scrollToBottom();
+}
+
+function scrollToBottom(){
+  const chat = document.getElementById('chat');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function send(){
+  const v = document.getElementById('cmd').value.trim();
+  if(!v) return;
+  addUser(v);
+  document.getElementById('cmd').value = '';
+
+  const [cmd, ...rest] = v.split(/\s+/);
+  const table = rest.join('_');
+  if(!cmd || !table){ 
+    addCard("❌ Please use: <b>train &lt;table&gt;</b> or <b>predict &lt;table&gt;</b>");
+    return;
+  }
+
+  try{
+    if(cmd.toLowerCase()==='train'){
+      addCard("<i>Training started...</i>");
+      const res = await fetch(`${API}/train`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ table })
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.detail || 'Train failed');
+      addCard(`✅ Model trained for <b>${data.table}</b><br>
+               R² Runtime: ${Number(data.r2_rt).toFixed(4)}, 
+               R² Memory: ${Number(data.r2_mb).toFixed(4)}<br>
+               Calibration Runtime ×${data.calib_rt}, Memory ×${data.calib_mb}`);
+    } 
+    else if(cmd.toLowerCase()==='predict'){
+      addCard("<i>Predicting...</i>");
+      const res = await fetch(`${API}/predict`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ table })
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.detail || 'Predict failed');
+
+      let rows = data.preview;
+      let html = `<b>Rows:</b> ${data.rows}
+                  <div class="scroll">
+                  <table>
+                    <tr>
+                      <th>Block</th>
+                      <th>Stage</th>
+                      <th>Predicted Runtime</th>
+                      <th>Predicted Memory</th>
+                    </tr>`;
+      rows.forEach(r=>{
+        html += `<tr>
+          <td>${r.block || ''}</td>
+          <td>${r.stage || ''}</td>
+          <td>${r.predicted_runtime || ''}</td>
+          <td>${r.predicted_memory || ''}</td>
+        </tr>`;
+      });
+      html += `</table></div>
+               <a href="${API}/download/${data.file}" target="_blank">
+                <button class="btn-blue" style="margin-top:10px;">📥 Download CSV</button>
+               </a>`;
+      addCard(html);
+    } 
+    else {
+      addCard("❌ Unknown command. Use <b>train &lt;table&gt;</b> or <b>predict &lt;table&gt;</b>.");
+    }
+  }catch(err){
+    addCard(`❌ Error: ${err.message}`);
+  }
+}
+</script>
+</body>
+</html>
