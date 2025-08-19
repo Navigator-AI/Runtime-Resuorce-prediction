@@ -5,8 +5,9 @@
   <title>Runtime & Resource Prediction</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f6f7f9; margin: 0; }
-    .wrap { max-width: 1100px; margin: 28px auto; padding: 0 12px; }
-    h2 { margin: 0 0 14px; }
+    .wrap { max-width: 800px; margin: 28px auto; padding: 0 12px; }
+    h2 { margin: 0 0 14px; text-align:center; }
+    #chat { display: flex; flex-direction: column; }
     .msg-user {
       background: #cfe3ff;
       padding: 10px 12px;
@@ -27,15 +28,13 @@
     }
     table { width:100%; border-collapse: collapse; margin-top:10px; }
     th, td { border:1px solid #cfe9d4; padding:10px; text-align:center; }
-    th { background:#2f2f2f; color:#fff; position: sticky; top:0; }
-    .scroll { max-height: 420px; overflow:auto; margin-top:10px; }
+    th { background:#2f2f2f; color:#fff; }
     .controls { display:flex; gap:8px; margin-top:12px; }
     input { flex:1; padding:10px; border:1px solid #ddd; border-radius:6px; }
     button { padding:10px 14px; border:0; border-radius:6px; background:#28a745; color:#fff; cursor:pointer; }
     button:hover { background:#218838; }
     .btn-blue { background:#007bff; } .btn-blue:hover{ background:#0069d9; }
-    .hint { color:#666; font-size: 12px; margin-top:6px; }
-    #chat { display: flex; flex-direction: column; }
+    .hint { color:#666; font-size: 12px; margin-top:6px; text-align:center; }
   </style>
 </head>
 <body>
@@ -81,9 +80,8 @@ async function send(){
   addUser(v);
   document.getElementById('cmd').value = '';
 
-  const [cmd, ...rest] = v.split(/\s+/);
-  const table = rest.join('_');
-  if(!cmd || !table){ 
+  const [cmd, table] = v.split(/\s+/, 2);
+  if(!cmd || !table){
     addCard("❌ Please use: <b>train &lt;table&gt;</b> or <b>predict &lt;table&gt;</b>");
     return;
   }
@@ -98,10 +96,7 @@ async function send(){
       });
       const data = await res.json();
       if(!res.ok) throw new Error(data.detail || 'Train failed');
-      addCard(`✅ Model trained for <b>${data.table}</b><br>
-               R² Runtime: ${Number(data.r2_rt).toFixed(4)}, 
-               R² Memory: ${Number(data.r2_mb).toFixed(4)}<br>
-               Calibration Runtime ×${data.calib_rt}, Memory ×${data.calib_mb}`);
+      addCard(`✅ Model trained for <b>${data.table}</b>`);
     } 
     else if(cmd.toLowerCase()==='predict'){
       addCard("<i>Predicting...</i>");
@@ -113,28 +108,25 @@ async function send(){
       const data = await res.json();
       if(!res.ok) throw new Error(data.detail || 'Predict failed');
 
-      let rows = data.preview;
-      let html = `<b>Rows:</b> ${data.rows}
-                  <div class="scroll">
+      let row = data.preview[0];
+      let html = `<b>Prediction Result:</b>
                   <table>
                     <tr>
                       <th>Block</th>
                       <th>Stage</th>
                       <th>Predicted Runtime</th>
                       <th>Predicted Memory</th>
-                    </tr>`;
-      rows.forEach(r=>{
-        html += `<tr>
-          <td>${r.block || ''}</td>
-          <td>${r.stage || ''}</td>
-          <td>${r.predicted_runtime || ''}</td>
-          <td>${r.predicted_memory || ''}</td>
-        </tr>`;
-      });
-      html += `</table></div>
-               <a href="${API}/download/${data.file}" target="_blank">
-                <button class="btn-blue" style="margin-top:10px;">📥 Download CSV</button>
-               </a>`;
+                    </tr>
+                    <tr>
+                      <td>${row.block}</td>
+                      <td>${row.stage}</td>
+                      <td>${row.predicted_runtime}</td>
+                      <td>${row.predicted_memory}</td>
+                    </tr>
+                  </table>
+                  <a href="${API}/download/${data.file}" target="_blank">
+                    <button class="btn-blue" style="margin-top:10px;">📥 Download CSV</button>
+                  </a>`;
       addCard(html);
     } 
     else {

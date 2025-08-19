@@ -11,7 +11,7 @@ DB_USER = "postgres"
 DB_PASSWORD = "Welcom@123"
 
 # Path to your CSV file
-CSV_FILE_Path = r"C:\Users\seai_\Downloads\"
+CSV_FILE_Path = r"C:\Users\seai_\Downloads\cortex_cts_varied_dataset.csv"
 # Connect to PostgreSQL
 conn = psycopg2.connect(
     host=DB_HOST,
